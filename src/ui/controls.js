@@ -59,7 +59,7 @@ export function mountControls(rootEl, initialParams, onChange) {
   drawer.className = "controls-drawer";
 
   const summary = document.createElement("summary");
-  summary.textContent = "Tuning";
+  summary.textContent = "Tuning:";
   drawer.append(summary);
 
   const content = document.createElement("div");
