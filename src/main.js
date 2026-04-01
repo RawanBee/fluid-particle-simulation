@@ -24,20 +24,23 @@ const ROTATION_ALPHA_FAST = 0.14;
 const SCALE_ALPHA_SLOW = 0.04;
 const SCALE_ALPHA_MED = 0.06;
 const SCALE_ALPHA_FAST = 0.1;
+const TELEKINESIS_POS_BLEND = 0.6;
+const TELEKINESIS_ROT_BLEND = 0.72;
+const TELEKINESIS_SCALE_BLEND = 0.5;
 
 const OPENNESS_ENTER = 0.12;
 const OPENNESS_STIR = 0.125;
 const CENTER_DEAD_ZONE = 0.03;
-const ROLL_DEAD_ZONE = 0.08;
-const PITCH_DEAD_ZONE = 0.08;
-const YAW_DEAD_ZONE = 0.05;
+const ROLL_DEAD_ZONE = 0.05;
+const PITCH_DEAD_ZONE = 0.05;
+const YAW_DEAD_ZONE = 0.03;
 const HAND_LOST_FREEZE_MS = 120;
 const HAND_LOST_RELAX_MS = 350;
 const MOVE_GAIN_X = 1.15;
 const MOVE_GAIN_Y = 1.15;
-const ROT_GAIN_X = 1.0;
-const ROT_GAIN_Y = 1.0;
-const ROT_GAIN_Z = 0.85;
+const ROT_GAIN_X = 1.35;
+const ROT_GAIN_Y = 1.35;
+const ROT_GAIN_Z = 1.15;
 const ZOOM_MIN = 0.78;
 const ZOOM_MAX = 1.28;
 const ANCHOR_REACQUIRE_MS = 300;
@@ -133,6 +136,10 @@ function applyDeadZone(value, zone) {
     return 0;
   }
   return value > 0 ? value - zone : value + zone;
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
 }
 
 function smoothLandmark(landmarks, index, alpha) {
@@ -305,6 +312,15 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
   let desiredScale = clamp(sizeRatio, ZOOM_MIN, ZOOM_MAX);
   desiredScale = 1 + (desiredScale - 1) * 0.85;
 
+  // Blend anchor-relative control with direct hand pose for a stronger
+  // "telekinetic" feel while keeping anchor stability.
+  desiredCx = lerp(desiredCx, measuredPose.centerX, TELEKINESIS_POS_BLEND);
+  desiredCy = lerp(desiredCy, measuredPose.centerY, TELEKINESIS_POS_BLEND);
+  desiredRotX = lerp(desiredRotX, measuredPose.rotX, TELEKINESIS_ROT_BLEND);
+  desiredRotY = lerp(desiredRotY, measuredPose.rotY, TELEKINESIS_ROT_BLEND);
+  desiredRotZ = lerp(desiredRotZ, measuredPose.rotZ, TELEKINESIS_ROT_BLEND);
+  desiredScale = lerp(desiredScale, clamp(measuredPose.size / Math.max(handAnchor.size, 1e-4), ZOOM_MIN, ZOOM_MAX), TELEKINESIS_SCALE_BLEND);
+
   if (reacquireFromPose && now - reacquireStartMs < reacquireDurationMs) {
     const t = clamp((now - reacquireStartMs) / reacquireDurationMs, 0, 1);
     const eased = t * t * (3 - 2 * t);
@@ -329,14 +345,14 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
   let rotAlpha = ROTATION_ALPHA_SLOW;
   let scaleAlpha = SCALE_ALPHA_SLOW;
   if (motion > canvas.width * 0.015) {
-    posAlpha = POSITION_ALPHA_MED;
-    rotAlpha = ROTATION_ALPHA_MED;
-    scaleAlpha = SCALE_ALPHA_MED;
+    posAlpha = POSITION_ALPHA_MED + 0.04;
+    rotAlpha = ROTATION_ALPHA_MED + 0.03;
+    scaleAlpha = SCALE_ALPHA_MED + 0.02;
   }
   if (motion > canvas.width * 0.035) {
-    posAlpha = POSITION_ALPHA_FAST;
-    rotAlpha = ROTATION_ALPHA_FAST;
-    scaleAlpha = SCALE_ALPHA_FAST;
+    posAlpha = POSITION_ALPHA_FAST + 0.05;
+    rotAlpha = ROTATION_ALPHA_FAST + 0.04;
+    scaleAlpha = SCALE_ALPHA_FAST + 0.03;
   }
 
   filteredPose.x += (desiredCx - filteredPose.x) * posAlpha;
@@ -350,7 +366,7 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
   prevPoseForSpeed.x = filteredPose.x;
   prevPoseForSpeed.y = filteredPose.y;
 
-  const shouldStir = openness > OPENNESS_STIR && pinch > OPENNESS_ENTER && handSpeed > canvas.width * 0.18;
+  const shouldStir = openness > OPENNESS_STIR && pinch > OPENNESS_ENTER && handSpeed > canvas.width * 0.26;
   setGestureChip(shouldStir ? "stir" : "hold");
   setModeChip("Hand");
 

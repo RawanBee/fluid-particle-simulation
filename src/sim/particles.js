@@ -37,6 +37,19 @@ export class ParticleSim {
     this.velCx = 0;
     this.velCy = 0;
     this.velSize = 0;
+    this.prevVelCx = 0;
+    this.prevVelCy = 0;
+    this.prevRotVelX = 0;
+    this.prevRotVelY = 0;
+    this.prevRotVelZ = 0;
+    this.inertia = {
+      localAx: 0,
+      localAy: 0,
+      localAz: 0,
+      omegaX: 0,
+      omegaY: 0,
+      omegaZ: 0,
+    };
     this.defaultCx = this.container.cx;
     this.defaultCy = this.container.cy;
     this.defaultHalfSize = this.container.halfSize;
@@ -49,12 +62,12 @@ export class ParticleSim {
   }
 
   buildContainer(width, height) {
-    const size = Math.min(width, height) * 0.52;
+    const size = Math.min(width, height) * 0.34;
     return {
       cx: width * 0.57,
       cy: height * 0.62,
       halfSize: size * 0.5,
-      cameraDepth: Math.max(width, height) * 0.85,
+      cameraDepth: Math.max(width, height) * 1.35,
     };
   }
 
@@ -261,6 +274,23 @@ export class ParticleSim {
     this.rotationY = Math.max(-1.45, Math.min(1.45, this.rotationY));
     this.rotationZ = Math.max(-1.2, Math.min(1.2, this.rotationZ));
     this.container.halfSize = Math.max(this.defaultHalfSize * 0.74, Math.min(this.defaultHalfSize * 1.34, this.container.halfSize));
+
+    const invDt = 1 / Math.max(1e-5, dt);
+    const axScreen = (this.velCx - this.prevVelCx) * invDt;
+    const ayScreen = (this.velCy - this.prevVelCy) * invDt;
+    const localA = this.inverseRotatePoint3D(axScreen, ayScreen, 0);
+    this.inertia.localAx = localA.x;
+    this.inertia.localAy = localA.y;
+    this.inertia.localAz = localA.z;
+    this.inertia.omegaX = this.rotVelX;
+    this.inertia.omegaY = this.rotVelY;
+    this.inertia.omegaZ = this.rotVelZ;
+
+    this.prevVelCx = this.velCx;
+    this.prevVelCy = this.velCy;
+    this.prevRotVelX = this.rotVelX;
+    this.prevRotVelY = this.rotVelY;
+    this.prevRotVelZ = this.rotVelZ;
   }
 
   clampToCube(p) {
@@ -377,6 +407,22 @@ export class ParticleSim {
       p.vx += g.x * dt;
       p.vy += g.y * dt;
       p.vz += g.z * dt;
+
+      // Couple fluid motion to container translation and rotation so
+      // particles "follow" telekinetic cube moves more naturally.
+      const inertiaCoupling = 0.00115;
+      p.vx -= this.inertia.localAx * dt * inertiaCoupling;
+      p.vy -= this.inertia.localAy * dt * inertiaCoupling;
+      p.vz -= this.inertia.localAz * dt * inertiaCoupling;
+
+      const spinCoupling = 0.055;
+      const sx = this.inertia.omegaY * p.z - this.inertia.omegaZ * p.y;
+      const sy = this.inertia.omegaZ * p.x - this.inertia.omegaX * p.z;
+      const sz = this.inertia.omegaX * p.y - this.inertia.omegaY * p.x;
+      p.vx += sx * spinCoupling * dt;
+      p.vy += sy * spinCoupling * dt;
+      p.vz += sz * spinCoupling * dt;
+
       if (this.pointer.active) {
         const projected = this.projectPoint3D(p.x, p.y, p.z);
         const dxs = projected.x - this.pointer.x;
@@ -485,7 +531,27 @@ export class ParticleSim {
       this.projectPoint3D(-h, -h, -h), this.projectPoint3D(h, -h, -h), this.projectPoint3D(h, h, -h), this.projectPoint3D(-h, h, -h),
       this.projectPoint3D(-h, -h, h), this.projectPoint3D(h, -h, h), this.projectPoint3D(h, h, h), this.projectPoint3D(-h, h, h),
     ];
-    const drawPoly = (indices, fillStyle) => {
+    const faceDefs = [
+      { indices: [0, 1, 2, 3], base: [88, 126, 206] },
+      { indices: [4, 5, 6, 7], base: [132, 184, 255] },
+      { indices: [0, 1, 5, 4], base: [90, 132, 212] },
+      { indices: [1, 2, 6, 5], base: [80, 118, 196] },
+      { indices: [2, 3, 7, 6], base: [96, 138, 220] },
+      { indices: [3, 0, 4, 7], base: [78, 114, 191] },
+    ];
+
+    for (let i = 0; i < faceDefs.length; i += 1) {
+      const f = faceDefs[i];
+      const [a, b, c, d] = f.indices;
+      f.depth = (points[a].z + points[b].z + points[c].z + points[d].z) * 0.25;
+    }
+    faceDefs.sort((a, b) => a.depth - b.depth);
+
+    const minFaceDepth = faceDefs[0].depth;
+    const maxFaceDepth = faceDefs[faceDefs.length - 1].depth;
+    const faceDepthRange = Math.max(1e-5, maxFaceDepth - minFaceDepth);
+
+    const drawPoly = (indices, fillStyle, strokeStyle) => {
       ctx.fillStyle = fillStyle;
       ctx.beginPath();
       ctx.moveTo(points[indices[0]].x, points[indices[0]].y);
@@ -494,18 +560,47 @@ export class ParticleSim {
       }
       ctx.closePath();
       ctx.fill();
+      if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
     };
-    drawPoly([0, 1, 2, 3], "rgba(85, 126, 213, 0.08)");
-    drawPoly([4, 5, 6, 7], "rgba(136, 188, 255, 0.14)");
-    drawPoly([0, 1, 5, 4], "rgba(88, 129, 210, 0.06)");
-    drawPoly([1, 2, 6, 5], "rgba(80, 116, 197, 0.06)");
-    drawPoly([2, 3, 7, 6], "rgba(94, 136, 220, 0.08)");
-    drawPoly([3, 0, 4, 7], "rgba(76, 114, 191, 0.06)");
+
+    for (let i = 0; i < faceDefs.length; i += 1) {
+      const f = faceDefs[i];
+      const depthNorm = (f.depth - minFaceDepth) / faceDepthRange;
+      const alpha = 0.04 + depthNorm * 0.12;
+      const [r, g, b] = f.base;
+      drawPoly(
+        f.indices,
+        `rgba(${r}, ${g}, ${b}, ${alpha})`,
+        `rgba(180, 222, 255, ${0.08 + depthNorm * 0.16})`,
+      );
+    }
+
     const edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
-    ctx.strokeStyle = "rgba(191, 226, 255, 0.74)";
-    ctx.lineWidth = 1.1;
+
+    let minEdgeDepth = Infinity;
+    let maxEdgeDepth = -Infinity;
+    const edgeDepths = [];
     for (let i = 0; i < edges.length; i += 1) {
       const [a, b] = edges[i];
+      const depth = (points[a].z + points[b].z) * 0.5;
+      edgeDepths.push(depth);
+      minEdgeDepth = Math.min(minEdgeDepth, depth);
+      maxEdgeDepth = Math.max(maxEdgeDepth, depth);
+    }
+    const edgeDepthRange = Math.max(1e-5, maxEdgeDepth - minEdgeDepth);
+
+    for (let i = 0; i < edges.length; i += 1) {
+      const [a, b] = edges[i];
+      const depthNorm = (edgeDepths[i] - minEdgeDepth) / edgeDepthRange;
+      if (depthNorm < 0.08) {
+        continue;
+      }
+      ctx.strokeStyle = `rgba(191, 226, 255, ${0.1 + depthNorm * 0.78})`;
+      ctx.lineWidth = 0.7 + depthNorm * 0.9;
       ctx.beginPath();
       ctx.moveTo(points[a].x, points[a].y);
       ctx.lineTo(points[b].x, points[b].y);
