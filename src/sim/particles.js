@@ -1,6 +1,6 @@
 const DEFAULT_PARAMS = {
   particleCount: 650,
-  radius: 2.7,
+  radius: 8.4,
   gravity: 1000,
   interactionRadius: 16,
   restDensity: 8.6,

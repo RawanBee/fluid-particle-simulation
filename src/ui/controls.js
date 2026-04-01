@@ -1,11 +1,11 @@
 const CONTROL_CONFIG = [
   { key: "particleCount", label: "particles", min: 200, max: 4200, step: 50, type: "int" },
-  { key: "radius", label: "orbeez size", min: 1.4, max: 5.4, step: 0.1, type: "float" },
+  { key: "radius", label: "orbeez size", min: 8.4, max: 10.4, step: 0.1, type: "float" },
   { key: "gravity", label: "gravity", min: 0, max: 1800, step: 10, type: "float" },
   { key: "interactionRadius", label: "smoothing", min: 10, max: 24, step: 1, type: "float" },
   { key: "restDensity", label: "density", min: 4, max: 24, step: 1, type: "float" },
   { key: "pressureStiffness", label: "pressure", min: 0.05, max: 0.5, step: 0.01, type: "float" },
-  { key: "nearPressureStiffness", label: "cohesion", min: 0.1, max: 1.2, step: 0.01, type: "float" },
+  { key: "nearPressureStiffness", label: "cohesion", min: 0.1, max: 0.5, step: 0.01, type: "float" },
   { key: "viscosity", label: "viscosity", min: 0, max: 0.5, step: 0.01, type: "float" },
   { key: "bounce", label: "wall bounce", min: 0.85, max: 1.0, step: 0.01, type: "float" },
   { key: "mouseForce", label: "stir force", min: 800, max: 10000, step: 100, type: "float" },
