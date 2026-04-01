@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fluid Particle Simulation Starter</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="stage">
+      <video id="handVideo" autoplay playsinline muted></video>
+      <canvas id="simCanvas" width="720" height="1180"></canvas>
+
+      <header class="hud-top">
+        <h1>Handheld Orbeez Cube</h1>
+        <p>Mouse: drag rotate, Shift+drag move, Ctrl/Cmd+drag depth, wheel zoom.</p>
+      </header>
+
+      <section class="hud-right" id="controls"></section>
+
+      <section class="hud-bottom">
+        <span class="chip" id="modeChip">Mode: Mouse</span>
+        <span class="chip" id="gestureChip">Gesture: none</span>
+        <span class="chip">Particles: <strong id="particleCountLabel"></strong></span>
+        <span class="chip">FPS: <strong id="fpsLabel">0</strong></span>
+        <button id="pauseBtn" type="button">Pause</button>
+        <button id="resetBtn" type="button">Reset</button>
+        <button id="handToggleBtn" type="button">Enable Hand</button>
+      </section>
+
+      <section class="hud-status">
+        <span id="handStatusLabel">Hand control off</span>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
