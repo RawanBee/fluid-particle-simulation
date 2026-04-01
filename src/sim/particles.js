@@ -525,7 +525,7 @@ export class ParticleSim {
     }
   }
 
-  drawCube(ctx) {
+  drawCube(ctx, mode = "all") {
     const h = this.container.halfSize;
     const points = [
       this.projectPoint3D(-h, -h, -h), this.projectPoint3D(h, -h, -h), this.projectPoint3D(h, h, -h), this.projectPoint3D(-h, h, -h),
@@ -567,16 +567,18 @@ export class ParticleSim {
       }
     };
 
-    for (let i = 0; i < faceDefs.length; i += 1) {
-      const f = faceDefs[i];
-      const depthNorm = (f.depth - minFaceDepth) / faceDepthRange;
-      const alpha = 0.04 + depthNorm * 0.12;
-      const [r, g, b] = f.base;
-      drawPoly(
-        f.indices,
-        `rgba(${r}, ${g}, ${b}, ${alpha})`,
-        `rgba(180, 222, 255, ${0.08 + depthNorm * 0.16})`,
-      );
+    if (mode !== "edges") {
+      for (let i = 0; i < faceDefs.length; i += 1) {
+        const f = faceDefs[i];
+        const depthNorm = (f.depth - minFaceDepth) / faceDepthRange;
+        const alpha = 0.04 + depthNorm * 0.12;
+        const [r, g, b] = f.base;
+        drawPoly(
+          f.indices,
+          `rgba(${r}, ${g}, ${b}, ${alpha})`,
+          `rgba(180, 222, 255, ${0.08 + depthNorm * 0.16})`,
+        );
+      }
     }
 
     const edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
@@ -593,18 +595,21 @@ export class ParticleSim {
     }
     const edgeDepthRange = Math.max(1e-5, maxEdgeDepth - minEdgeDepth);
 
-    for (let i = 0; i < edges.length; i += 1) {
-      const [a, b] = edges[i];
-      const depthNorm = (edgeDepths[i] - minEdgeDepth) / edgeDepthRange;
-      if (depthNorm < 0.08) {
-        continue;
+    if (mode !== "faces") {
+      for (let i = 0; i < edges.length; i += 1) {
+        const [a, b] = edges[i];
+        const depthNorm = (edgeDepths[i] - minEdgeDepth) / edgeDepthRange;
+        if (depthNorm < 0.08) {
+          continue;
+        }
+        // Keep edges readable against bright particle highlights.
+        ctx.strokeStyle = `rgba(255, 242, 0, ${0.34 + depthNorm * 0.62})`;
+        ctx.lineWidth = 2.1 + depthNorm * 2.4;
+        ctx.beginPath();
+        ctx.moveTo(points[a].x, points[a].y);
+        ctx.lineTo(points[b].x, points[b].y);
+        ctx.stroke();
       }
-      ctx.strokeStyle = `rgba(191, 226, 255, ${0.1 + depthNorm * 0.78})`;
-      ctx.lineWidth = 0.7 + depthNorm * 0.9;
-      ctx.beginPath();
-      ctx.moveTo(points[a].x, points[a].y);
-      ctx.lineTo(points[b].x, points[b].y);
-      ctx.stroke();
     }
   }
 
@@ -629,7 +634,7 @@ export class ParticleSim {
     const { radius } = this.params;
     ctx.fillStyle = "rgba(5, 8, 14, 0.08)";
     ctx.fillRect(0, 0, this.width, this.height);
-    this.drawCube(ctx);
+    this.drawCube(ctx, "faces");
     const projected = [];
     for (let i = 0; i < this.particles.length; i += 1) {
       const p = this.particles[i];
@@ -655,5 +660,6 @@ export class ParticleSim {
       const drawRadius = radius * (0.9 + item.screen.perspective * 0.24);
       this.drawOrbeez(ctx, item.screen.x, item.screen.y, drawRadius, item.speed, depthNorm);
     }
+    this.drawCube(ctx, "edges");
   }
 }
