@@ -4,6 +4,10 @@ Interactive 2D fluid-like particle simulation built with vanilla JavaScript and 
 
 This project demonstrates particle motion and force interaction in real time, with UI controls to experiment with behavior like gravity, damping, repulsion, and particle density.
 
+## Live demo
+
+[https://rawanbee.github.io/fluid-particle-simulation/](https://rawanbee.github.io/fluid-particle-simulation/)
+
 ## How to run
 
 ### Option 1 (recommended): Live Server extension
