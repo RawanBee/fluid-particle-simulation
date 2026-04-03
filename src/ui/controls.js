@@ -22,12 +22,7 @@ export function mountControls(rootEl, initialParams, onChange) {
   rootEl.innerHTML = "";
   const controlRefs = new Map();
   const chips = document.createElement("div");
-  chips.className = "hud-bottom";
-  chips.style.position = "static";
-  chips.style.left = "auto";
-  chips.style.right = "auto";
-  chips.style.bottom = "auto";
-  chips.style.paddingBottom = "8px";
+  chips.className = "control-presets";
 
   const quickActions = [
     { label: "Water", patch: { viscosity: 0.03, nearPressureStiffness: 0.56, pressureStiffness: 0.24, bounce: 0.96 } },
@@ -38,6 +33,7 @@ export function mountControls(rootEl, initialParams, onChange) {
   quickActions.forEach((action) => {
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "btn";
     button.textContent = action.label;
     button.addEventListener("click", () => {
       Object.entries(action.patch).forEach(([key, value]) => {
@@ -59,7 +55,7 @@ export function mountControls(rootEl, initialParams, onChange) {
   drawer.className = "controls-drawer";
 
   const summary = document.createElement("summary");
-  summary.textContent = "Tuning:";
+  summary.textContent = "PARAM //";
   drawer.append(summary);
 
   const content = document.createElement("div");

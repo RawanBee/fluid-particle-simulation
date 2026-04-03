@@ -13,6 +13,11 @@ const handStatusLabel = document.getElementById("handStatusLabel");
 const handVideo = document.getElementById("handVideo");
 const modeChip = document.getElementById("modeChip");
 const gestureChip = document.getElementById("gestureChip");
+const introOverlay = document.getElementById("introOverlay");
+const introDismiss = document.getElementById("introDismiss");
+const introReplay = document.getElementById("introReplay");
+
+const INTRO_STORAGE_KEY = "hydro-intro-v1";
 
 const sim = new ParticleSim(canvas.width, canvas.height);
 const POSITION_ALPHA_SLOW = 0.08;
@@ -77,8 +82,8 @@ let prevPoseForSpeed = { x: filteredPose.x, y: filteredPose.y };
 const smoothedLandmarks = {};
 
 particleCountLabel.textContent = String(sim.particles.length);
-setModeChip("Mouse");
-setGestureChip("none");
+setModeChip("MOUSE");
+setGestureChip("—");
 
 mountControls(controlsRoot, sim.params, (key, value) => {
   sim.setParam(key, value);
@@ -105,9 +110,65 @@ function resizeScene() {
 resizeScene();
 window.addEventListener("resize", resizeScene);
 
+function bindIntroOverlay() {
+  if (!introOverlay || !introDismiss) {
+    return;
+  }
+
+  if (localStorage.getItem(INTRO_STORAGE_KEY)) {
+    introOverlay.classList.add("intro--gone");
+    introOverlay.setAttribute("aria-hidden", "true");
+    introOverlay.classList.remove("intro--checking");
+  } else {
+    requestAnimationFrame(() => {
+      introOverlay.classList.remove("intro--checking");
+      introDismiss.focus();
+    });
+  }
+
+  function dismissIntro() {
+    localStorage.setItem(INTRO_STORAGE_KEY, "1");
+    introOverlay.classList.add("intro--leaving");
+    introOverlay.setAttribute("aria-hidden", "true");
+    introOverlay.addEventListener(
+      "transitionend",
+      () => {
+        introOverlay.classList.add("intro--gone");
+        introOverlay.classList.remove("intro--leaving");
+      },
+      { once: true },
+    );
+  }
+
+  introDismiss.addEventListener("click", dismissIntro);
+
+  introOverlay.addEventListener("click", (event) => {
+    if (event.target === introOverlay) {
+      dismissIntro();
+    }
+  });
+
+  if (introReplay) {
+    introReplay.addEventListener("click", () => {
+      localStorage.removeItem(INTRO_STORAGE_KEY);
+      introOverlay.classList.remove("intro--gone", "intro--leaving");
+      introOverlay.setAttribute("aria-hidden", "false");
+      introDismiss.focus();
+    });
+  }
+
+  introOverlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !introOverlay.classList.contains("intro--gone")) {
+      introDismiss.click();
+    }
+  });
+}
+
+bindIntroOverlay();
+
 pauseBtn.addEventListener("click", () => {
   isPaused = !isPaused;
-  pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+  pauseBtn.textContent = isPaused ? "Run" : "Hold";
 });
 
 resetBtn.addEventListener("click", () => {
@@ -120,11 +181,11 @@ function setHandStatus(text) {
 }
 
 function setModeChip(text) {
-  modeChip.textContent = `Mode: ${text}`;
+  modeChip.textContent = text;
 }
 
 function setGestureChip(text) {
-  gestureChip.textContent = `Gesture: ${text}`;
+  gestureChip.textContent = text;
 }
 
 function clamp(value, min, max) {
@@ -161,7 +222,7 @@ async function setupHandTrackerModel() {
     return true;
   }
 
-  setHandStatus("Loading hand model...");
+  setHandStatus("Vision: loading model…");
   try {
     const visionTasks = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14");
     const filesetResolver = await visionTasks.FilesetResolver.forVisionTasks(
@@ -179,7 +240,7 @@ async function setupHandTrackerModel() {
     });
     return true;
   } catch (error) {
-    setHandStatus("Could not load hand model");
+    setHandStatus("Vision: model error");
     // eslint-disable-next-line no-console
     console.error(error);
     return false;
@@ -192,7 +253,7 @@ async function startHandTracking() {
     return;
   }
 
-  setHandStatus("Requesting webcam...");
+  setHandStatus("Vision: requesting camera…");
   try {
     handStream = await navigator.mediaDevices.getUserMedia({
       video: {
@@ -210,10 +271,10 @@ async function startHandTracking() {
     handAnchor = null;
     lastTrackedHandMs = 0;
     lastStablePose = { ...filteredPose };
-    handToggleBtn.textContent = "Disable Hand Control";
-    setHandStatus("Hand control active");
+    handToggleBtn.textContent = "End track";
+    setHandStatus("Vision: active");
   } catch (error) {
-    setHandStatus("Webcam permission denied");
+    setHandStatus("Vision: permission denied");
     // eslint-disable-next-line no-console
     console.error(error);
   }
@@ -226,10 +287,10 @@ function stopHandTracking() {
   reacquireFromPose = null;
   handAnchor = null;
   lastTrackedHandMs = 0;
-  setModeChip("Mouse");
-  setGestureChip("none");
-  handToggleBtn.textContent = "Enable Hand Control";
-  setHandStatus("Hand control off");
+  setModeChip("MOUSE");
+  setGestureChip("—");
+  handToggleBtn.textContent = "Vision track";
+  setHandStatus("Vision: off");
   if (handStream) {
     handStream.getTracks().forEach((track) => track.stop());
     handStream = null;
@@ -367,8 +428,8 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
   prevPoseForSpeed.y = filteredPose.y;
 
   const shouldStir = openness > OPENNESS_STIR && pinch > OPENNESS_ENTER && handSpeed > canvas.width * 0.26;
-  setGestureChip(shouldStir ? "stir" : "hold");
-  setModeChip("Hand");
+  setGestureChip(shouldStir ? "STIR" : "HOLD");
+  setModeChip("HAND");
 
   sim.applyHandPose(filteredPose.x, filteredPose.y, filteredPose.rx, filteredPose.ry, filteredPose.rz, filteredPose.scale);
   handMode = shouldStir ? "stir" : "hold";
@@ -391,9 +452,9 @@ function updateHandTracking(now, dt) {
     if (now - lastHandSeenMs > 350) {
       sim.setPointer(0, 0, false);
       handMode = "idle";
-      setGestureChip("none");
+      setGestureChip("—");
       sim.relaxHandPose(dt, true);
-      setHandStatus("Show your hand to control cube");
+      setHandStatus("Vision: show hand");
     }
     return;
   }
@@ -410,7 +471,7 @@ function updateHandTracking(now, dt) {
     const handednessLabel = results.handedness?.[0]?.[0]?.categoryName ?? "Right";
     applyHandPoseFromLandmarks(results.landmarks[0], handednessLabel, now, dt);
     lastHandSeenMs = now;
-    setHandStatus("Hand detected");
+    setHandStatus("Vision: locked");
   } else {
     if (lostSinceMs === 0) {
       lostSinceMs = now;
@@ -418,20 +479,20 @@ function updateHandTracking(now, dt) {
     const lostDuration = now - lostSinceMs;
     sim.setPointer(0, 0, false);
     if (lostDuration <= HAND_LOST_FREEZE_MS) {
-      setHandStatus("Tracking...");
+      setHandStatus("Vision: acquiring…");
       return;
     }
     handMode = "idle";
-    setGestureChip("none");
+    setGestureChip("—");
     if (lostDuration <= HAND_LOST_RELAX_MS) {
       sim.relaxHandPose(dt * 0.45, true);
-      setHandStatus("Hold steady for reacquire");
+      setHandStatus("Vision: hold steady");
       return;
     }
     handAnchor = null;
     lastTrackedHandMs = 0;
     sim.relaxHandPose(dt, true);
-    setHandStatus("Show your hand to control cube");
+    setHandStatus("Vision: show hand");
   }
 }
 
@@ -441,7 +502,7 @@ handToggleBtn.addEventListener("click", async () => {
     return;
   }
   await startHandTracking();
-  setModeChip("Hand");
+  setModeChip("HAND");
 });
 
 window.addEventListener("beforeunload", () => {
@@ -461,7 +522,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (handTrackingEnabled) {
     return;
   }
-  setGestureChip("mouse");
+  setGestureChip("PTR");
   const pointer = updatePointerFromEvent(event);
   isStirMode = event.altKey;
 
@@ -538,7 +599,7 @@ function frame(now) {
     ctx.drawImage(handVideo, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
   } else {
-    ctx.fillStyle = "#05070b";
+    ctx.fillStyle = "#020508";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
