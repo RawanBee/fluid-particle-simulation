@@ -110,6 +110,19 @@ function resizeScene() {
 resizeScene();
 window.addEventListener("resize", resizeScene);
 
+const hudTune = document.getElementById("hudTune");
+const hudTuneWideMq = window.matchMedia("(min-width: 641px)");
+
+function syncHudTuneOpen() {
+  if (!hudTune) {
+    return;
+  }
+  hudTune.open = hudTuneWideMq.matches;
+}
+
+syncHudTuneOpen();
+hudTuneWideMq.addEventListener("change", syncHudTuneOpen);
+
 function bindIntroOverlay() {
   if (!introOverlay || !introDismiss) {
     return;

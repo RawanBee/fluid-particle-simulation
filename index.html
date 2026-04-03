@@ -101,7 +101,6 @@
                   <dd>What the sim thinks you’re doing (hold, stir, pointer).</dd>
                 </div>
               </dl>
-              <button type="button" class="btn btn--ghost" id="introReplay">Show welcome screen again</button>
             </div>
           </details>
           <div class="hud-metrics" aria-live="polite">
@@ -128,7 +127,12 @@
           </div>
         </header>
 
-        <aside class="hud-side" id="controls"></aside>
+        <aside class="hud-side">
+          <details class="hud-tune" id="hudTune">
+            <summary class="hud-tune__summary">Tune · presets &amp; physics</summary>
+            <div class="hud-tune__panel" id="controls"></div>
+          </details>
+        </aside>
 
         <footer class="hud-bottom">
           <div class="hud-bottom__row">
@@ -138,7 +142,12 @@
             <button id="pauseBtn" type="button" class="btn">Hold</button>
             <button id="resetBtn" type="button" class="btn">Reset</button>
           </div>
-          <div class="hud-status" id="handStatusLabel">Vision: off</div>
+          <div class="hud-bottom__meta">
+            <div class="hud-status" id="handStatusLabel">Vision: off</div>
+            <button type="button" class="btn btn--ghost hud-welcome-again" id="introReplay">
+              Welcome
+            </button>
+          </div>
         </footer>
       </div>
     </main>
