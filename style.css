@@ -36,7 +36,6 @@
   box-sizing: border-box;
 }
 
-/* Keyboard / screen-reader: jump past intro chrome when focused */
 .skip-link {
   position: absolute;
   width: 1px;
@@ -480,7 +479,6 @@ body {
   pointer-events: none;
 }
 
-/* Desktop: dark wash from the left — sits under HUD chrome & config (see z-index). */
 @media (min-width: 641px) {
   .hud::after {
     content: "";
@@ -825,7 +823,6 @@ body {
     0 0 10px rgba(66, 240, 255, 0.15);
 }
 
-/* Desktop: compact top HUD — frees vertical space for the sim & sits clearer of the left rail. */
 @media (min-width: 641px) {
   .hud-top {
     max-width: min(460px, calc(100% - var(--safe-l) - var(--safe-r)));
@@ -915,9 +912,7 @@ body {
 .hud-config {
   --hud-config-w: min(300px, calc(100vw - var(--safe-l) - var(--safe-r) - 16px));
   position: absolute;
-  /* Above .hud::after left gradient (z-index 0) */
   z-index: 2;
-  /* --hud-config-top set from JS to sit below .hud-top (header height varies) */
   top: var(--hud-config-top, calc(var(--safe-t) + clamp(260px, 44dvh, 460px)));
   bottom: calc(var(--safe-b) + var(--hud-footer-stack-h));
   left: max(var(--safe-l), 12px);
@@ -972,7 +967,6 @@ body {
   backdrop-filter: none;
 }
 
-/* Hide disclosure label visually; keep <summary> for valid <details> + screen readers. */
 .hud-config .controls-drawer__summary {
   position: absolute;
   width: 1px;
@@ -1013,7 +1007,6 @@ body {
 
 .hud-bottom__meta {
   display: flex;
-  /* flex-wrap: wrap; */
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -1021,7 +1014,6 @@ body {
 }
 
 .hud-bottom__meta .hud-status {
-  /* flex: 1 1 140px; */
   min-width: 0;
 }
 
@@ -1037,10 +1029,6 @@ body {
 @media (min-width: 900px) {
   .hud-welcome-again {
     margin-left: auto;
-  }
-
-  .hud-bottom__meta .hud-status {
-    /* flex: 1 1 auto; */
   }
 }
 
@@ -1122,8 +1110,6 @@ body {
 }
 
 .btn--ghost {
-  /* width: 100%; */
-  /* margin-top: 4px; */
   border-style: dashed;
   border-color: rgba(62, 232, 255, 0.3);
   border-radius: 4px;
@@ -1280,7 +1266,6 @@ input[type="range"] {
   padding-bottom: 0;
 }
 
-/* Read labels / values over live video & sim */
 .hud-config .control-row label,
 .hud-config .control-row .control-value {
   text-shadow:
@@ -1446,7 +1431,6 @@ input[type="range"] {
     scroll-snap-align: start;
   }
 
-  /* Hide physics dock (.controls-drawer__summary + .controls-content--grid live inside) */
   .hud-config {
     display: none;
   }
@@ -1566,13 +1550,7 @@ input[type="range"] {
     display: none;
   }
 
-  /* .hud-bottom__meta {
-    flex-direction: column;
-    align-items: stretch;
-  } */
-
   .hud-welcome-again {
-    /* width: 100%; */
     margin-left: 0;
     text-align: center;
   }
