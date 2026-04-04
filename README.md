@@ -1,111 +1,137 @@
-# Fluid particle simulation (HYDRO)
+# HYDRO
 
-A **browser-only**, real-time **2D canvas** demo that reads like a soft-body fluid: thousands of particles in a transformable 3D-style glass box, with **mouse/trackpad** control and optional **webcam hand tracking** (MediaPipe). No build step, no framework—just ES modules, Canvas 2D, and a small physics core.
+Real-time **particle fluid** in your browser: thousands of spheres in a 3D-style glass tank, steered with your **webcam** (hand pose via MediaPipe). **Desktop:** live physics sliders on the left. No build step, no framework—ES modules, Canvas 2D, and a small simulation core.
 
 **[Live demo →](https://rawanbee.github.io/fluid-particle-simulation/)**
 
-## Capabilities
+---
 
-| Topic | Notes |
-|-------|--------|
-| **Graphics** | Canvas 2D game loop, device-pixel-ratio sizing, compositing video + particles |
-| **Simulation** | Time-stepped particle dynamics, density/pressure model, spatial hashing for neighbor queries |
-| **Interaction** | Pointer events, multi-mode drag (rotate / pan / depth), gesture heuristics over landmarks |
-| **Vision** | Dynamic `import()` of MediaPipe Tasks Vision, WASM backend, async model + camera lifecycle |
-| **UI** | Responsive HUD, `prefers-reduced-motion`, safe areas, progressive disclosure on small screens |
-| **Structure** | `sim/` (physics), `ui/` (controls), `main.js` (integration + loop) |
+## Contents
 
-## Technical overview
+| Section | What you’ll find |
+|--------|-------------------|
+| [Quick start](#quick-start) | Run it locally in one command |
+| [Using HYDRO](#using-hydro) | In-app controls, HUD, permissions |
+| [Repository map](#repository-map) | Where each part of the code lives |
+| [How it works](#how-it-works) | Physics, vision, performance |
+| [Privacy & data](#privacy--data) | Camera, `localStorage` |
+| [Requirements](#requirements) | Browsers and hosting |
+| [License](#license) | MIT + attribution note |
 
-- **`ParticleSim`** (`src/sim/particles.js`) drives positions each frame using a **position-based style** fluid flavor: smooth density kernels, pressure from deviation from rest density, viscosity, gravity, and wall collision inside a **rotated 3D box** projected to screen space.
-- **Neighbor work** uses a **spatial hash** (`buildSpatialHash` / `forEachNeighborPair`) so pairwise work scales far better than naive \(O(n^2)\) over the particle count slider range.
-- **`main.js`** owns the **`requestAnimationFrame` loop**, resize/DPR handling, pointer routing, and optional **HandLandmarker** pose → cube transform + stir detection. The webcam stream is drawn under the sim when vision mode is on.
+---
 
-## Tech stack
+## Quick start
 
-| Layer | Choice |
-|-------|--------|
-| Runtime | Modern evergreen browsers (Chrome recommended for MediaPipe + camera) |
-| Language | JavaScript **ES modules** |
-| Rendering | **HTML5 Canvas 2D** + `<video>` underlay for camera |
-| Styling | **CSS3** (custom properties, `clamp`, `dvh`, safe-area insets, media queries) |
-| Hand tracking | **[@mediapipe/tasks-vision](https://www.npmjs.com/package/@mediapipe/tasks-vision)** via **jsDelivr CDN** (dynamic import + WASM) |
-
-There is **no** `package.json`: zero install, clone and serve.
-
-## Project layout
-
-```text
-fluid-particle-simulation/
-├── index.html          # markup: viewport, HUD, intro overlay, controls mount point
-├── style.css           # HUD / intro / responsive layout
-├── README.md
-└── src/
-    ├── main.js         # RAF loop, input, resize, MediaPipe integration, intro persistence
-    ├── sim/
-    │   └── particles.js    # ParticleSim: physics, container, spatial hash, drawing
-    └── ui/
-        └── controls.js     # Sliders + Water / Gel / Bouncy presets (injected into #controls)
-```
-
-## Running locally
-
-ES modules require **HTTP** (not `file://`).
-
-**Python:**
+The app loads **ES modules** over **HTTP** (opening `index.html` as a `file://` URL will not work).
 
 ```bash
 cd fluid-particle-simulation
 python3 -m http.server 5173
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open **http://localhost:5173** in your browser.
 
-**Or** use VS Code **Live Server** (or any static file server) pointed at the repo root.
+Other options: **VS Code Live Server**, `npx serve`, or any static file server with the **repo root** as the document root.
 
-## Controls
+**Deploying / forking:** If you host a copy under another URL, update **`og:url`** and **`rel="canonical"`** in `index.html` so social previews and SEO point to your deployment.
 
-**Mouse / trackpad**
+---
 
-| Input | Effect |
-|--------|--------|
-| Drag on canvas | Rotate the container |
-| **Shift** + drag | Pan the container |
-| **Ctrl** / **Cmd** + drag | Depth / twist |
-| Wheel | Zoom |
-| **Alt** + drag | Stir particles |
+## Using HYDRO
 
-**Vision (optional)**
+### First visit
 
-- **Vision track** — requests camera, loads the hand landmarker model, maps hand pose to cube motion and optional stir.
-- Permission is only needed when you enable tracking.
+1. Read the **welcome** overlay, then choose **Enter**.
+2. **Allow the camera** when the browser asks—the tank is controlled from your **hand in frame** (not mouse on the canvas).
+3. On **wide screens**, use the **left column** of sliders for particles, gravity, viscosity, cohesion, and other parameters.
 
-**HUD**
+### HUD (heads-up display)
 
-- **Hold** — pause simulation; **Run** resumes.
-- **Reset** — respawn particles at current count.
-- **Tune** — presets + parameter drawer (on narrow viewports this starts collapsed).
-- **Welcome** — replay the onboarding overlay (also clears the stored dismiss flag).
+| Area | Role |
+|------|------|
+| **Top** | Title, short tagline, **Help** (`<details>`) with metrics legend |
+| **Metrics** | **FPS**, **N** (particle count), **MODE** (webcam), **SIG** (gesture: hold / stir) |
+| **Status line** | Vision state (loading, active, show hand, errors, etc.) |
+| **Left rail** | Physics sliders (hidden on small/narrow layouts to save space) |
+| **Footer** | **Hold** (pause) · **Reset** (respawn) · **Welcome** (replay intro) |
 
-## Performance notes
+### Input model
 
-- **`particleCount`** is the main cost driver; spatial hashing keeps neighbor passes practical, but GPU/CPU still matter.
-- Canvas size follows **`window.innerWidth/Height × min(devicePixelRatio, 2)`** to balance sharpness and fill rate.
-- Hand tracking adds **inference per video frame**; expect lower FPS on low-end phones.
+- **Scene:** webcam hand tracking only (the canvas does not use mouse or wheel for moving the tank).
+- **Tuning:** range inputs in the left rail (desktop).
+- **Hold / Reset / Welcome:** buttons as above.
 
-## Browser and privacy
+---
 
-- **Camera**: used only if the user enables vision tracking; tracks are stopped on disable / `beforeunload`.
-- **Intro dismiss** uses **`localStorage`** key `hydro-intro-v1` (no analytics in this repo).
+## Repository map
 
-## Possible extensions
+```text
+fluid-particle-simulation/
+├── index.html          # Page shell, intro overlay, HUD, #controls mount
+├── style.css           # Layout, HUD, intro, responsive rules
+├── LICENSE
+├── README.md           # This file
+└── src/
+    ├── main.js         # Game loop, resize, MediaPipe + camera, HUD wiring
+    ├── sim/
+    │   └── particles.js    # ParticleSim: physics, spatial hash, drawing
+    └── ui/
+        └── controls.js     # Injects physics sliders into #controls
+```
 
-- WebGPU / WebGL for particle fill; worker thread for physics step
-- Spatial structure tuned for SIMD or typed-array SoA layout
-- Touch-specific gestures; PWA manifest for installable demo
+**Good starting points for reading code**
+
+1. `index.html` — structure and copy  
+2. `src/main.js` — frame loop, vision lifecycle, pause/reset  
+3. `src/sim/particles.js` — simulation parameters and step  
+4. `src/ui/controls.js` — slider definitions (preset chip UI exists in code but is **hidden** in CSS for this build)
+
+---
+
+## How it works
+
+- **Simulation** (`ParticleSim`): position-based style fluid flavor—density kernels, pressure vs rest density, viscosity, gravity, walls inside a rotated box projected to 2D.
+- **Neighbors:** spatial hashing keeps work closer to \(O(n)\) than \(O(n^2)\) as you raise particle count.
+- **Vision:** `@mediapipe/tasks-vision` is loaded with **`import()`** from jsDelivr (WASM). After the intro, the app **requests the camera** and runs hand landmark inference on video frames.
+- **Rendering:** Canvas is sized with **`devicePixelRatio`** (capped at 2). The mirrored video can be drawn under the particle pass when tracking is active.
+
+---
+
+## Privacy & data
+
+| Item | Detail |
+|------|--------|
+| **Camera** | Used for hand tracking while the page is open; tracks are stopped on tab close / unload. |
+| **Intro** | If you dismiss the welcome overlay, a flag is stored in **`localStorage`** (`hydro-intro-v1`) so it stays dismissed. **Welcome** clears that flag. |
+| **Analytics** | None in this repository. |
+
+---
+
+## Requirements
+
+- **Browser:** Recent Chrome, Edge, Firefox, or Safari. **Chrome** is the most reliable target for MediaPipe + camera.
+- **Camera:** Required for steering the scene (with user permission).
+- **Hosting:** Static files only; no server-side API.
+
+---
+
+## Performance
+
+- **`particleCount`** (slider) is the main CPU cost.
+- Hand tracking adds **per-frame** model work; expect lower **FPS** on weak devices or high resolutions.
 
 ---
 
 ## License
 
-[MIT](LICENSE). Copyright (c) 2026 **Rawan Bazadough**. The license asks that the **HYDRO** project name and [demo link](https://rawanbee.github.io/fluid-particle-simulation/) stay with the copyright notice when you redistribute or ship derivatives—see `LICENSE` for the exact wording.
+[MIT](LICENSE). Copyright (c) 2026 **Rawan Bazadough**. The license asks that the **HYDRO** name and [demo link](https://rawanbee.github.io/fluid-particle-simulation/) stay with the copyright notice when you redistribute or ship derivatives—see `LICENSE` for the exact wording.
+
+---
+
+## Release checklist (maintainers)
+
+- [ ] `og:url` and `rel="canonical"` in `index.html` match the deployment URL  
+- [ ] Smoke test in **Chrome**: intro → camera permission → hand moves tank → sliders (desktop) → Hold / Reset  
+- [ ] **README** demo link points at the live site you intend to ship  
+
+---

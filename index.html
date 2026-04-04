@@ -6,17 +6,37 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#020508" />
-    <title>Fluid particle simulation</title>
+    <meta
+      name="description"
+      content="HYDRO — real-time particle fluid in the browser. Steer a glass tank with your webcam; tune physics on desktop. No install."
+    />
+    <meta name="theme-color" content="#010408" />
+    <meta name="author" content="Rawan Bazadough" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="HYDRO · particle fluid" />
+    <meta
+      property="og:description"
+      content="Webcam-steered particle fluid in a glass tank. Real-time canvas sim with optional physics sliders."
+    />
+    <meta property="og:url" content="https://rawanbee.github.io/fluid-particle-simulation/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="HYDRO · particle fluid" />
+    <meta
+      name="twitter:description"
+      content="Webcam-steered particle fluid in a glass tank. Real-time canvas sim."
+    />
+    <link rel="canonical" href="https://rawanbee.github.io/fluid-particle-simulation/" />
+    <title>HYDRO · particle fluid</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&family=Orbitron:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@500;600&family=Orbitron:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
+    <a class="skip-link" href="#simCanvas">Skip to simulation</a>
     <div
       id="introOverlay"
       class="intro intro--checking"
@@ -28,77 +48,76 @@
       <div class="intro__aurora" aria-hidden="true"></div>
       <div class="intro__ring" aria-hidden="true"></div>
       <div class="intro__panel">
-        <p class="intro__eyebrow">Live in your browser · not a video</p>
-        <h2 id="introTitle" class="intro__title">Liquid made of light &amp; math</h2>
+        <p class="intro__eyebrow">Live · browser</p>
+        <h2 id="introTitle" class="intro__title">HYDRO</h2>
         <p id="introDesc" class="intro__lead">
-          A program moves thousands of tiny spheres every fraction of a second. Together they
-          squish, flow, and pile up so your eye reads them as one soft, splashy mass—like gel
-          beads in a clear box.
+          Particle fluid in a wireframe tank—<strong>your webcam</strong> moves it (hand pose). Wide screens: physics sliders on the left. Allow camera when prompted.
         </p>
         <ul class="intro__steps">
           <li>
-            <span class="intro__glyph" aria-hidden="true"></span>
-            <span><strong>The glowing blob</strong> is the simulated fluid—each dot is a particle.</span>
-          </li>
-          <li>
             <span class="intro__glyph intro__glyph--box" aria-hidden="true"></span>
-            <span><strong>The wireframe cube</strong> is the glass tank that holds it.</span>
+            <span><strong>Blob</strong> = fluid · <strong>cube</strong> = tank.</span>
           </li>
           <li>
             <span class="intro__glyph intro__glyph--hand" aria-hidden="true"></span>
-            <span><strong>You steer it</strong> with a mouse or trackpad—or let the camera follow your hand.</span>
+            <span><strong>Webcam</strong> for steering—no mouse on the scene.</span>
           </li>
         </ul>
         <div class="intro__actions">
           <button type="button" class="btn btn--primary intro__cta" id="introDismiss">
-            Step inside
+            Enter
           </button>
-          <p class="intro__tiny">No install. Works on laptop, tablet, and phone.</p>
+          <p class="intro__tiny">No install needed.</p>
         </div>
       </div>
     </div>
 
-    <main class="app">
+    <main class="app" id="app">
       <div class="viewport">
         <video id="handVideo" autoplay playsinline muted></video>
-        <canvas id="simCanvas" width="720" height="1180"></canvas>
+        <canvas id="simCanvas" width="720" height="1180" tabindex="-1"></canvas>
         <div class="viewport-grid" aria-hidden="true"></div>
         <div class="viewport-sweep" aria-hidden="true"></div>
+        <div class="viewport-scanlines" aria-hidden="true"></div>
       </div>
 
       <div class="hud" role="presentation">
+        <div class="hud-frame" aria-hidden="true"></div>
         <header class="hud-top">
           <div class="hud-top__title">
-            <span class="hud-eyebrow">particle field</span>
-            <span class="hud-title">HYDRO</span>
+            <span class="hud-eyebrow">fluid</span>
+            <div class="hud-title-line">
+              <h1 class="hud-title">HYDRO</h1>
+              <span class="hud-title__cursor" aria-hidden="true">_</span>
+            </div>
           </div>
           <p class="hud-deck">
-            You’re watching a <strong>real-time physics toy</strong>: many small spheres pooled in a
-            box, blended to look and move like soft liquid.
+            <strong>Webcam</strong> steers the tank · <strong>desktop:</strong> sliders left.
           </p>
           <details class="hud-details">
-            <summary>How to play · what the numbers mean</summary>
+            <summary>Help</summary>
             <div class="hud-details__body">
               <p class="hud-details__p">
-                <strong>Controls:</strong> drag on the scene to tilt the tank. Shift+drag moves it,
-                Ctrl/Cmd+drag pushes depth, scroll wheel zooms. Alt+drag stirs the fluid.
+                <strong>Hand</strong> moves and tilts the box; status line shows lock / lost hand.
+                <strong>SIG</strong> = hold vs stir. <strong>Hold</strong> pauses · <strong>Reset</strong> respawns ·
+                <strong>Welcome</strong> replays intro. Left rail = physics (wide screens).
               </p>
               <dl class="hud-legend">
                 <div>
                   <dt>FPS</dt>
-                  <dd>How often the picture updates—higher feels smoother.</dd>
+                  <dd>Frame rate.</dd>
                 </div>
                 <div>
                   <dt>N</dt>
-                  <dd>How many particles—more dots, richer “liquid,” heavier work for your device.</dd>
+                  <dd>Particle count.</dd>
                 </div>
                 <div>
                   <dt>MODE</dt>
-                  <dd>Mouse/trackpad vs. camera hand tracking.</dd>
+                  <dd>Input = webcam.</dd>
                 </div>
                 <div>
                   <dt>SIG</dt>
-                  <dd>What the sim thinks you’re doing (hold, stir, pointer).</dd>
+                  <dd>Gesture readout.</dd>
                 </div>
               </dl>
             </div>
@@ -116,8 +135,8 @@
             </div>
             <div class="metric">
               <span class="metric__k">MODE</span>
-              <span class="metric__hint">input</span>
-              <span class="metric__v" id="modeChip">MOUSE</span>
+              <span class="metric__hint">camera</span>
+              <span class="metric__v" id="modeChip">WEBCAM</span>
             </div>
             <div class="metric">
               <span class="metric__k">SIG</span>
@@ -127,23 +146,17 @@
           </div>
         </header>
 
-        <aside class="hud-side">
-          <details class="hud-tune" id="hudTune">
-            <summary class="hud-tune__summary">Tune · presets &amp; physics</summary>
-            <div class="hud-tune__panel" id="controls"></div>
-          </details>
-        </aside>
+        <section class="hud-config" aria-label="Physics parameters">
+          <div id="controls" class="hud-config__mount"></div>
+        </section>
 
         <footer class="hud-bottom">
           <div class="hud-bottom__row">
-            <button id="handToggleBtn" type="button" class="btn btn--primary">
-              Vision track
-            </button>
             <button id="pauseBtn" type="button" class="btn">Hold</button>
             <button id="resetBtn" type="button" class="btn">Reset</button>
           </div>
           <div class="hud-bottom__meta">
-            <div class="hud-status" id="handStatusLabel">Vision: off</div>
+            <div class="hud-status" id="handStatusLabel">Vision: starting…</div>
             <button type="button" class="btn btn--ghost hud-welcome-again" id="introReplay">
               Welcome
             </button>

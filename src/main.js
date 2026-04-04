@@ -8,24 +8,25 @@ const pauseBtn = document.getElementById("pauseBtn");
 const resetBtn = document.getElementById("resetBtn");
 const fpsLabel = document.getElementById("fpsLabel");
 const particleCountLabel = document.getElementById("particleCountLabel");
-const handToggleBtn = document.getElementById("handToggleBtn");
 const handStatusLabel = document.getElementById("handStatusLabel");
 const handVideo = document.getElementById("handVideo");
-const modeChip = document.getElementById("modeChip");
 const gestureChip = document.getElementById("gestureChip");
 const introOverlay = document.getElementById("introOverlay");
 const introDismiss = document.getElementById("introDismiss");
 const introReplay = document.getElementById("introReplay");
+const hudTopEl = document.querySelector(".hud-top");
+const hudConfigEl = document.querySelector(".hud-config");
+const hudDetailsEl = document.querySelector(".hud-details");
 
 const INTRO_STORAGE_KEY = "hydro-intro-v1";
 
 const sim = new ParticleSim(canvas.width, canvas.height);
-const POSITION_ALPHA_SLOW = 0.08;
-const POSITION_ALPHA_MED = 0.14;
-const POSITION_ALPHA_FAST = 0.22;
-const ROTATION_ALPHA_SLOW = 0.06;
-const ROTATION_ALPHA_MED = 0.08;
-const ROTATION_ALPHA_FAST = 0.14;
+const POSITION_ALPHA_SLOW = 0.11;
+const POSITION_ALPHA_MED = 0.18;
+const POSITION_ALPHA_FAST = 0.28;
+const ROTATION_ALPHA_SLOW = 0.08;
+const ROTATION_ALPHA_MED = 0.11;
+const ROTATION_ALPHA_FAST = 0.18;
 const SCALE_ALPHA_SLOW = 0.04;
 const SCALE_ALPHA_MED = 0.06;
 const SCALE_ALPHA_FAST = 0.1;
@@ -51,6 +52,8 @@ const ZOOM_MAX = 1.28;
 const ANCHOR_REACQUIRE_MS = 300;
 const ROTATION_DIRECTION_FLIP = -1;
 
+const SCENE_INPUT_WEBCAM_ONLY = true;
+
 let isPaused = false;
 let lastTime = performance.now();
 let frameCount = 0;
@@ -65,7 +68,7 @@ let lostSinceMs = 0;
 let handMode = "idle";
 let mouseDragMode = "rotate";
 let reacquireStartMs = 0;
-let reacquireDurationMs = 220;
+let reacquireDurationMs = 160;
 let reacquireFromPose = null;
 let handAnchor = null;
 let lastTrackedHandMs = 0;
@@ -82,33 +85,16 @@ let prevPoseForSpeed = { x: filteredPose.x, y: filteredPose.y };
 const smoothedLandmarks = {};
 
 particleCountLabel.textContent = String(sim.particles.length);
-setModeChip("MOUSE");
 setGestureChip("—");
 
 mountControls(controlsRoot, sim.params, (key, value) => {
   sim.setParam(key, value);
 
-  if (key === "particleCount") {
-    sim.reset(value);
+  if (key === "particleCount" || key === "fillFraction") {
+    sim.reset(sim.params.particleCount);
     particleCountLabel.textContent = String(sim.particles.length);
   }
 });
-
-function resizeScene() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const width = Math.floor(window.innerWidth * dpr);
-  const height = Math.floor(window.innerHeight * dpr);
-  canvas.width = width;
-  canvas.height = height;
-  sim.resize(width, height);
-  filteredPose.x = width * 0.55;
-  filteredPose.y = height * 0.58;
-  prevPoseForSpeed.x = filteredPose.x;
-  prevPoseForSpeed.y = filteredPose.y;
-}
-
-resizeScene();
-window.addEventListener("resize", resizeScene);
 
 const hudTune = document.getElementById("hudTune");
 const hudTuneWideMq = window.matchMedia("(min-width: 641px)");
@@ -121,9 +107,67 @@ function syncHudTuneOpen() {
 }
 
 syncHudTuneOpen();
-hudTuneWideMq.addEventListener("change", syncHudTuneOpen);
+hudTuneWideMq.addEventListener("change", () => {
+  syncHudTuneOpen();
+  scheduleHudConfigTop();
+});
 
-function bindIntroOverlay() {
+const hudConfigMobileMq = window.matchMedia("(max-width: 640px)");
+
+function syncHudConfigTop() {
+  if (!hudTopEl || !hudConfigEl) {
+    return;
+  }
+  if (hudConfigMobileMq.matches) {
+    hudConfigEl.style.removeProperty("--hud-config-top");
+    return;
+  }
+  const gapPx = 12;
+  const y = Math.round(hudTopEl.getBoundingClientRect().bottom + gapPx);
+  hudConfigEl.style.setProperty("--hud-config-top", `${y}px`);
+}
+
+function scheduleHudConfigTop() {
+  requestAnimationFrame(() => {
+    syncHudConfigTop();
+    requestAnimationFrame(syncHudConfigTop);
+  });
+}
+
+hudConfigMobileMq.addEventListener("change", () => {
+  scheduleHudConfigTop();
+});
+
+hudDetailsEl?.addEventListener("toggle", scheduleHudConfigTop);
+
+if (hudTopEl && typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(() => scheduleHudConfigTop()).observe(hudTopEl);
+}
+
+if (document.fonts?.ready) {
+  document.fonts.ready.then(scheduleHudConfigTop);
+}
+
+scheduleHudConfigTop();
+
+function resizeScene() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.floor(window.innerWidth * dpr);
+  const height = Math.floor(window.innerHeight * dpr);
+  canvas.width = width;
+  canvas.height = height;
+  sim.resize(width, height);
+  filteredPose.x = width * 0.55;
+  filteredPose.y = height * 0.58;
+  prevPoseForSpeed.x = filteredPose.x;
+  prevPoseForSpeed.y = filteredPose.y;
+  scheduleHudConfigTop();
+}
+
+resizeScene();
+window.addEventListener("resize", resizeScene);
+
+function bindIntroOverlay(onIntroClosed) {
   if (!introOverlay || !introDismiss) {
     return;
   }
@@ -143,14 +187,16 @@ function bindIntroOverlay() {
     localStorage.setItem(INTRO_STORAGE_KEY, "1");
     introOverlay.classList.add("intro--leaving");
     introOverlay.setAttribute("aria-hidden", "true");
-    introOverlay.addEventListener(
-      "transitionend",
-      () => {
-        introOverlay.classList.add("intro--gone");
-        introOverlay.classList.remove("intro--leaving");
-      },
-      { once: true },
-    );
+    const onLeaveEnd = (event) => {
+      if (event.target !== introOverlay || event.propertyName !== "opacity") {
+        return;
+      }
+      introOverlay.removeEventListener("transitionend", onLeaveEnd);
+      introOverlay.classList.add("intro--gone");
+      introOverlay.classList.remove("intro--leaving");
+      onIntroClosed?.();
+    };
+    introOverlay.addEventListener("transitionend", onLeaveEnd);
   }
 
   introDismiss.addEventListener("click", dismissIntro);
@@ -177,8 +223,6 @@ function bindIntroOverlay() {
   });
 }
 
-bindIntroOverlay();
-
 pauseBtn.addEventListener("click", () => {
   isPaused = !isPaused;
   pauseBtn.textContent = isPaused ? "Run" : "Hold";
@@ -191,10 +235,6 @@ resetBtn.addEventListener("click", () => {
 
 function setHandStatus(text) {
   handStatusLabel.textContent = text;
-}
-
-function setModeChip(text) {
-  modeChip.textContent = text;
 }
 
 function setGestureChip(text) {
@@ -284,7 +324,6 @@ async function startHandTracking() {
     handAnchor = null;
     lastTrackedHandMs = 0;
     lastStablePose = { ...filteredPose };
-    handToggleBtn.textContent = "End track";
     setHandStatus("Vision: active");
   } catch (error) {
     setHandStatus("Vision: permission denied");
@@ -300,9 +339,7 @@ function stopHandTracking() {
   reacquireFromPose = null;
   handAnchor = null;
   lastTrackedHandMs = 0;
-  setModeChip("MOUSE");
   setGestureChip("—");
-  handToggleBtn.textContent = "Vision track";
   setHandStatus("Vision: off");
   if (handStream) {
     handStream.getTracks().forEach((track) => track.stop());
@@ -330,8 +367,6 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
   let screenX = (1 - palmX) * canvas.width;
   let screenY = palmY * canvas.height;
 
-  // Handedness from the model is in camera space; the scene is mirrored.
-  // Flipping sign here aligns perceived rotation with on-screen motion.
   const handSign = handednessLabel === "Left" ? 1 : -1;
   let roll = Math.atan2(indexMcp.y - pinkyMcp.y, indexMcp.x - pinkyMcp.x);
   let pitch = Math.atan2(middleMcp.y - wrist.y, Math.abs(middleMcp.x - wrist.x) + 1e-5);
@@ -386,8 +421,6 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
   let desiredScale = clamp(sizeRatio, ZOOM_MIN, ZOOM_MAX);
   desiredScale = 1 + (desiredScale - 1) * 0.85;
 
-  // Blend anchor-relative control with direct hand pose for a stronger
-  // "telekinetic" feel while keeping anchor stability.
   desiredCx = lerp(desiredCx, measuredPose.centerX, TELEKINESIS_POS_BLEND);
   desiredCy = lerp(desiredCy, measuredPose.centerY, TELEKINESIS_POS_BLEND);
   desiredRotX = lerp(desiredRotX, measuredPose.rotX, TELEKINESIS_ROT_BLEND);
@@ -442,7 +475,6 @@ function applyHandPoseFromLandmarks(landmarks, handednessLabel, now, dt) {
 
   const shouldStir = openness > OPENNESS_STIR && pinch > OPENNESS_ENTER && handSpeed > canvas.width * 0.26;
   setGestureChip(shouldStir ? "STIR" : "HOLD");
-  setModeChip("HAND");
 
   sim.applyHandPose(filteredPose.x, filteredPose.y, filteredPose.rx, filteredPose.ry, filteredPose.rz, filteredPose.scale);
   handMode = shouldStir ? "stir" : "hold";
@@ -509,14 +541,20 @@ function updateHandTracking(now, dt) {
   }
 }
 
-handToggleBtn.addEventListener("click", async () => {
-  if (handTrackingEnabled) {
-    stopHandTracking();
-    return;
-  }
-  await startHandTracking();
-  setModeChip("HAND");
-});
+function scheduleAutoVision() {
+  requestAnimationFrame(() => {
+    if (handTrackingEnabled) {
+      return;
+    }
+    void startHandTracking();
+  });
+}
+
+bindIntroOverlay(scheduleAutoVision);
+
+if (introOverlay?.classList.contains("intro--gone")) {
+  scheduleAutoVision();
+}
 
 window.addEventListener("beforeunload", () => {
   stopHandTracking();
@@ -532,6 +570,9 @@ function updatePointerFromEvent(event) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
+  if (SCENE_INPUT_WEBCAM_ONLY) {
+    return;
+  }
   if (handTrackingEnabled) {
     return;
   }
@@ -558,6 +599,9 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 canvas.addEventListener("pointermove", (event) => {
+  if (SCENE_INPUT_WEBCAM_ONLY) {
+    return;
+  }
   if (handTrackingEnabled) {
     return;
   }
@@ -573,6 +617,9 @@ canvas.addEventListener("pointermove", (event) => {
 });
 
 canvas.addEventListener("pointerup", () => {
+  if (SCENE_INPUT_WEBCAM_ONLY) {
+    return;
+  }
   sim.endCubeDrag();
   sim.setPointer(0, 0, false);
   isStirMode = false;
@@ -580,6 +627,9 @@ canvas.addEventListener("pointerup", () => {
 });
 
 canvas.addEventListener("pointerleave", () => {
+  if (SCENE_INPUT_WEBCAM_ONLY) {
+    return;
+  }
   sim.endCubeDrag();
   sim.setPointer(0, 0, false);
   isStirMode = false;
@@ -587,6 +637,9 @@ canvas.addEventListener("pointerleave", () => {
 });
 
 canvas.addEventListener("wheel", (event) => {
+  if (SCENE_INPUT_WEBCAM_ONLY) {
+    return;
+  }
   if (handTrackingEnabled) {
     return;
   }
